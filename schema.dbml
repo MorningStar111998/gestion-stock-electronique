@@ -1,0 +1,175 @@
+// Définition de la structure de base de données (DBML)
+// Documentation : https://dbml.dbdiagram.io/docs
+
+Table utilisateur {
+  id integer [pk, increment]
+  prenom varchar [not null]
+  nom varchar [not null]
+  email varchar [unique, not null]
+  mot_de_passe_hash varchar [not null]
+  role role_utilisateur [default: "employe", not null]
+  cree_le timestamp [default: `now()`, not null]
+  actif bool [default: true, not null]
+}
+
+enum role_utilisateur {
+  employe
+  chef_equipe
+  admin
+}
+
+Table client {
+  id integer [pk, increment]
+  nom_complet varchar [not null]
+  email varchar [not null]
+  adresse varchar [not null]
+}
+
+Table produit {
+  id integer [pk, increment]
+  nom varchar [not null]
+  categorie categorie_produit [default: "autre", not null]
+  reference varchar [unique, not null]
+  prix decimal(10,2) [not null]
+  couleur varchar
+  marque varchar
+  quantite_stock integer [not null, default: 0]
+  seuil_alerte integer
+  disponible_a_la_vente bool [default: false, not null]
+
+}
+
+enum categorie_produit {
+  autre
+  telephone 
+  ordinateur 
+  panneau_solaire
+  camera
+  }
+
+Table telephone {
+  produit_id integer [pk]
+  stockage integer //Go
+  ram integer //Go
+}
+
+Table ordinateur {
+  produit_id integer [pk]
+  ram integer //Go
+  stockage integer //Go
+  processeur varchar
+  carte_graphique varchar
+}
+
+Table panneau_solaire {
+  produit_id integer [pk]
+  puissance decimal //W
+  tension decimal //V
+  rendement decimal //%
+}
+
+Table camera {
+  produit_id integer [pk]
+  resolution varchar
+  type_connexion varchar
+  vision_nocturne bool [default: false]
+}
+
+Table devis {
+  id integer [pk, increment]
+  numero_devis varchar [unique, not null] 
+  statut statut_devis [default: "en_attente", not null]
+  utilisateur_id integer [not null]
+  client_id integer [not null]
+  nom_complet varchar [not null]
+  email varchar [not null]
+  adresse varchar [not null]
+  cree_le timestamp [default: `now()`, not null]
+  expire_le timestamp [not null, default: `now() + interval '30 days'`]
+
+  indexes {
+    utilisateur_id
+    client_id
+  }
+}
+
+enum statut_devis {
+  en_attente 
+  accepte 
+  refuse
+  }
+
+
+Table ligne_devis {
+  id integer [pk, increment]
+  devis_id integer [not null]
+  produit_id integer [not null]
+  prix_unitaire decimal(10,2) [not null]
+  quantite integer [not null]
+
+    indexes {
+      (devis_id, produit_id) [unique]
+      produit_id
+  }
+
+  checks {
+    `quantite > 0` [name: "ck_ligne_devis_quantite"]
+  }
+}
+
+Table facture {
+  id integer [pk, increment]
+  numero_facture varchar [unique, not null] 
+  statut statut_facture [default: "emise", not null]
+  utilisateur_id integer [not null]
+  client_id integer [not null]
+  nom_complet varchar [not null]
+  email varchar [not null]
+  adresse varchar [not null]
+  devis_id integer [unique]
+  cree_le timestamp [default: `now()`, not null]
+
+  indexes {
+    utilisateur_id
+    client_id
+  }
+}
+
+enum statut_facture {
+  annulee
+  payee
+  emise
+  }
+
+Table ligne_facture {
+  id integer [pk, increment]
+  facture_id integer [not null]
+  produit_id integer [not null]
+  prix_unitaire decimal(10,2) [not null]
+  quantite integer [not null]
+
+    indexes {
+    (facture_id, produit_id) [unique]
+    produit_id
+  }
+}
+
+// Relations Devis
+Ref: devis.utilisateur_id > utilisateur.id [delete: restrict]
+Ref: ligne_devis.devis_id > devis.id [delete: cascade]
+Ref: devis.client_id > client.id [delete: restrict]
+Ref: ligne_devis.produit_id > produit.id [delete: restrict]
+
+// Relations Factures
+Ref: facture.utilisateur_id > utilisateur.id [delete: restrict]
+Ref: ligne_facture.facture_id > facture.id [delete: restrict]
+Ref: facture.client_id > client.id [delete: restrict]
+Ref: ligne_facture.produit_id > produit.id [delete: restrict]
+
+Ref: facture.devis_id - devis.id [delete: restrict] // "1-1 optionnel, la facture peut exister sans devis".
+
+// Héritage Produit et Filles
+Ref: telephone.produit_id - produit.id
+Ref: ordinateur.produit_id - produit.id
+Ref: panneau_solaire.produit_id - produit.id
+Ref: camera.produit_id - produit.id
